@@ -1,3 +1,4 @@
+import logging
 from rest_framework import viewsets, generics
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -19,11 +20,21 @@ from .permissions import IsSuperOrOwner
 from .pagination import RoleAwarePageNumberPagination
 from .services import ensure_periodic_task
 
+logger = logging.getLogger(__name__)
+
 
 class PredefinedTaskList(generics.ListAPIView):
     queryset = PredefinedTask.objects.filter(is_schedulable=True).order_by("name")
     serializer_class = PredefinedTaskSerializer
     permission_classes = [AllowAny]
+
+    def list(self, request, *args, **kwargs):
+        resp = super().list(request, *args, **kwargs)
+        logger.info(
+            "predefined_tasks_listed",
+            extra={"count": len(resp.data or []), "user": getattr(request.user, "id", None)},
+        )
+        return resp
 
 
 class ScheduleViewSet(viewsets.ModelViewSet):
@@ -50,13 +61,46 @@ class ScheduleViewSet(viewsets.ModelViewSet):
             return ScheduleUpdateSerializer
         return ScheduleSerializer
 
+    def list(self, request, *args, **kwargs):
+        logger.info(
+            "schedules_list_requested",
+            extra={
+                "user": getattr(request.user, "id", None),
+                "filters": {k: v for k, v in request.query_params.items()},
+            },
+        )
+        resp = super().list(request, *args, **kwargs)
+        logger.info(
+            "schedules_list_returned",
+            extra={"count": resp.data.get("count", None), "user": getattr(request.user, "id", None)},
+        )
+        return resp
+
     def perform_create(self, serializer):
         instance = serializer.save()
         ensure_periodic_task(instance)
+        logger.info(
+            "schedule_created",
+            extra={
+                "schedule_id": instance.id,
+                "task": instance.task.name if instance.task_id else None,
+                "owner": instance.owner_id,
+                "status": instance.status,
+            },
+        )
 
     def perform_update(self, serializer):
         instance = serializer.save()
         ensure_periodic_task(instance)
+        logger.info(
+            "schedule_updated",
+            extra={
+                "schedule_id": instance.id,
+                "task": instance.task.name if instance.task_id else None,
+                "owner": instance.owner_id,
+                "status": instance.status,
+            },
+        )
 
     def perform_destroy(self, instance):
         instance.deleted_at = timezone.now()
@@ -66,9 +110,16 @@ class ScheduleViewSet(viewsets.ModelViewSet):
         from django_celery_beat.models import PeriodicTask
 
         if instance.beat_periodic_task_id:
-            PeriodicTask.objects.filter(id=instance.beat_periodic_task_id).update(
-                enabled=False, args="[]"
-            )
+            PeriodicTask.objects.filter(id=instance.beat_periodic_task_id).update(enabled=False, args="[]")
+
+        logger.warning(
+            "schedule_soft_deleted",
+            extra={
+                "schedule_id": instance.id,
+                "owner": instance.owner_id,
+                "beat_task_id": instance.beat_periodic_task_id,
+            },
+        )
 
     @action(detail=True, methods=["get"])
     def executions(self, request, pk=None):
@@ -76,6 +127,10 @@ class ScheduleViewSet(viewsets.ModelViewSet):
         qs = schedule.executions.all()
         page = self.paginate_queryset(qs)
         ser = ExecutionSerializer(page, many=True)
+        logger.info(
+            "schedule_executions_listed",
+            extra={"schedule_id": schedule.id, "count": len(page)},
+        )
         return self.get_paginated_response(ser.data)
 
     @action(detail=False, methods=["post"], url_path="search")
@@ -94,9 +149,11 @@ class ScheduleViewSet(viewsets.ModelViewSet):
 
         for key in list(filters.keys()):
             if key not in allowed_fields:
-                filters.pop(key)
+                filters.pop(key, None)
 
-        qs = self.get_queryset().filter(**filters)
+        qs = self.get_queryset()
+        for k, v in filters.items():
+            qs = qs.filter(**{k: v})
 
         safe_ordering = []
         for f in ordering:
@@ -108,6 +165,16 @@ class ScheduleViewSet(viewsets.ModelViewSet):
 
         page = self.paginate_queryset(qs)
         ser = ScheduleSerializer(page, many=True)
+
+        logger.info(
+            "schedules_advanced_search",
+            extra={
+                "user": getattr(request.user, "id", None),
+                "filters": filters,
+                "ordering": safe_ordering,
+                "count": len(page),
+            },
+        )
         return self.get_paginated_response(ser.data)
 
 
@@ -120,8 +187,12 @@ class ExecutionDetail(generics.RetrieveAPIView):
 class UserCreateView(generics.CreateAPIView):
     serializer_class = UserCreateSerializer
     permission_classes = [IsAdminUser]
-    
     def create(self, request, *args, **kwargs):
         if not request.user.is_authenticated or not request.user.is_superuser:
+            logger.warning(
+                "user_create_forbidden",
+                extra={"user": getattr(request.user, "id", None)},
+            )
             return Response({"detail": "Only superuser"}, status=403)
+        logger.info("user_create_attempt", extra={"by": request.user.id})
         return super().create(request, *args, **kwargs)
