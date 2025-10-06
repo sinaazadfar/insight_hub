@@ -1,0 +1,43 @@
+# Python basics
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Virtual environments
+.env
+.env.*
+.venv/
+venv/
+env/
+
+# Django
+db.sqlite3
+db.sqlite3-journal
+
+staticfiles/
+static_root/
+static/
+media/
+
+
+# Celery
+celerybeat-schedule
+celerybeat.pid
+celerybeat.*
+*.pid
+
+# Logs 
+*.log
+logs/
+log/
+*.tmp
+tmp/
+*.cache
+.cache/
+*.swp
+*.swo
+
+
+# IDE 
+.vscode/
