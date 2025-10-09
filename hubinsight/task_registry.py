@@ -3,7 +3,7 @@ REGISTRY = {
         "schedulable": True,
         "description": "Send periodic report",
         "inputs_schema": [
-            {"name": "  ", "type": "email", "required": True},
+            {"name": "email", "type": "email", "required": True},
             {"name": "days", "type": "int", "required": False, "min": 1, "max": 30},
         ],
     },

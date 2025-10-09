@@ -4,3 +4,4 @@ from django.apps import AppConfig
 class HubinsightConfig(AppConfig):
     default_auto_field = 'django.db.models.BigAutoField'
     name = 'hubinsight'
+    verbose_name = "Insight Hub"

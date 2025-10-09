@@ -1,0 +1,10 @@
+django==5.2.7
+djangorestframework==3.15.2
+djangorestframework-simplejwt
+drf-spectacular
+django-filter
+celery==5.5.3
+django-celery-beat
+croniter
+redis
+python-dotenv

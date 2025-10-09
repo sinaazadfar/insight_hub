@@ -5,17 +5,6 @@ from django.utils import timezone
 import json
 from .models import Schedule
 
-
-def validate_cron_5(cron: str) -> bool:
-    if not isinstance(cron, str) or cron.count(" ") != 4:
-        return False
-    try:
-        croniter(cron, timezone.now())
-        return True
-    except Exception:
-        return False
-
-
 def validate_cron_5_detailed(cron: str):
     if not isinstance(cron, str) or cron.strip() == "":
         return False, "Cron expression is required."

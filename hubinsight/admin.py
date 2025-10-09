@@ -14,5 +14,4 @@ class SAdmin(admin.ModelAdmin):
 @admin.register(Execution)
 class EAdmin(admin.ModelAdmin):
     list_display = ("id","schedule","status","started_at","finished_at")
-    list_filter = ("status",)
-
+    list_filter = ("status",)   
