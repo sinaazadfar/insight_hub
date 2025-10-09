@@ -2,7 +2,6 @@ import time
 from celery import shared_task
 from django.utils import timezone
 from .models import Execution, Schedule
-from hubinsight.decorator import time_capture
 
 @shared_task
 def my_ping():
