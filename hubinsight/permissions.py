@@ -6,4 +6,3 @@ class IsSuperOrOwner(BasePermission):
             return True
         owner = getattr(obj, "owner", None) or getattr(getattr(obj, "schedule", None), "owner", None)
         return owner == request.user
-

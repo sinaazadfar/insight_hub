@@ -4,6 +4,7 @@ from django.contrib.auth import get_user_model
 from .models import PredefinedTask, Schedule, Execution
 from .validators import validate_inputs
 from .services import validate_cron_5_detailed, compute_next_run_at
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
 logger = logging.getLogger(__name__)
 User = get_user_model()
@@ -55,6 +56,9 @@ class ScheduleCreateSerializer(serializers.ModelSerializer):
         task = attrs.get("task")
         cron = attrs.get("cron_expression")
         inputs = attrs.get("inputs", {})
+        
+        if "inputs" in attrs and not isinstance(attrs["inputs"], dict):
+            raise serializers.ValidationError({"inputs": "Inputs must be a valid JSON object."})
 
         ok, msg = validate_cron_5_detailed(cron)
         if not ok:
@@ -133,6 +137,8 @@ class ScheduleUpdateSerializer(serializers.ModelSerializer):
         sch: Schedule = self.instance
         cron = attrs.get("cron_expression", sch.cron_expression)
         inputs = attrs.get("inputs", sch.inputs)
+        if "inputs" in attrs and not isinstance(attrs["inputs"], dict):
+            raise serializers.ValidationError({"inputs": "Inputs must be a valid JSON object."})
 
         ok, msg = validate_cron_5_detailed(cron)
         if not ok:
@@ -173,3 +179,25 @@ class ExecutionSerializer(serializers.ModelSerializer):
     class Meta:
         model = Execution
         fields = ["id", "schedule", "task_name", "started_at", "finished_at", "status", "runtime_ms", "logs"]
+
+
+class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
+    @classmethod
+    def get_token(cls, user):
+        token = super().get_token(user)
+        # Add custom claims (optional)
+        token["first_name"] = user.first_name
+        token["last_name"] = user.last_name
+        return token
+
+    def validate(self, attrs):
+        data = super().validate(attrs)
+        # Add fields to response
+        data.update({
+            "id": self.user.id,
+            "username": self.user.username,
+            "email": self.user.email,
+            "first_name": self.user.first_name,
+            "last_name": self.user.last_name,
+        })
+        return data

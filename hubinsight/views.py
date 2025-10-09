@@ -6,6 +6,7 @@ from django.utils import timezone
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.filters import OrderingFilter, SearchFilter
 from rest_framework.permissions import AllowAny, IsAdminUser
+from rest_framework_simplejwt.views import TokenObtainPairView
 
 from .models import PredefinedTask, Schedule, Execution
 from .serializers import (
@@ -15,6 +16,7 @@ from .serializers import (
     ScheduleUpdateSerializer,
     ExecutionSerializer,
     UserCreateSerializer,
+    CustomTokenObtainPairSerializer
 )
 from .permissions import IsSuperOrOwner
 from .pagination import RoleAwarePageNumberPagination
@@ -196,3 +198,8 @@ class UserCreateView(generics.CreateAPIView):
             return Response({"detail": "Only superuser"}, status=403)
         logger.info("user_create_attempt", extra={"by": request.user.id})
         return super().create(request, *args, **kwargs)
+
+
+
+class CustomTokenObtainPairView(TokenObtainPairView):
+    serializer_class = CustomTokenObtainPairSerializer
